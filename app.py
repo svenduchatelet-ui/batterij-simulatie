@@ -21,7 +21,7 @@ with col1:
         st.image(logo_path, width=150) # Toon logo in de eerste kolom
 
 with col2:
-    st.title("Optimalisatie obv Day-Ahead en Peak Shaving") # Titel in de middelste, breedste kolom
+    st.title("Optimalisatie Day-Ahead en Peak Shaving") # Titel in de middelste, breedste kolom
 
 with col3:
     # Gebruik markdown om het icoon groot en rechts uit te lijnen
