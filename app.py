@@ -358,20 +358,23 @@ else:
             st.header("Gemiddelde Dag van de Maand")
 
             # === Automatische berekening van SoC divisor ===
-            # Schatting van typische ontlading
-            max_discharge_auto = df["Discharge_auto2_kWh"].max() if "Discharge_auto2_kWh" in df else 0.0
-            max_discharge_da = df["Discharge_da_kWh"].max() if "Discharge_da_kWh" in df else 0.0
-            typical_max_discharge = max(max_discharge_auto, max_discharge_da, 1e-6)
+            # Bepaal SoC-divisor op basis van gemiddelde dagprofiel van verbruik
+            dfx = df.copy()
+            dfx["Date"] = pd.to_datetime(dfx["Date"]).dt.round('15min')
+            dfx["H"], dfx["M"] = dfx["Date"].dt.hour, dfx["Date"].dt.minute
+            grp = dfx.groupby(["H", "M"]).mean(numeric_only=True)
 
-            # Gewenste verhouding: batterijcapaciteit / divisor ≈ typische ontlading
-            ratio = BATTERY_CAP_KWH / typical_max_discharge if typical_max_discharge > 0 else 20
+            if "Consumption_KWh" in grp.columns and not grp["Consumption_KWh"].empty:
+                max_avg_day_load = grp["Consumption_KWh"].max()
+            elif "Import_KWh" in grp.columns and not grp["Import_KWh"].empty:
+                # fallback als Consumption niet bestaat
+                max_avg_day_load = grp["Import_KWh"].max()
+            else:
+                max_avg_day_load = BATTERY_CAP_KWH / 10  # veilige default
 
-            # Toegestane waarden voor divisor
+            # Kies soc_divisor zodat BATTERY_CAP_KWH / divisor ≈ max verbruik gemiddeld dagprofiel
             allowed_divisors = np.array([1, 5, 10, 20])
-            soc_divisor = allowed_divisors[np.argmin(np.abs((BATTERY_CAP_KWH / allowed_divisors) - typical_max_discharge))]
-
-            st.caption(f"SoC schaal automatisch ingesteld op 1/{soc_divisor} van batterijcapaciteit "
-                       f"(≈ {BATTERY_CAP_KWH/soc_divisor:.1f} kWh zichtbaar in grafiek).")
+            soc_divisor = allowed_divisors[np.argmin(np.abs((BATTERY_CAP_KWH / allowed_divisors) - max_avg_day_load))]
 
             df_plot = df.copy()
             df_plot["Injection_neg"] = -df["Injection_KWh"].clip(lower=0.0)
