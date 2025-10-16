@@ -356,24 +356,66 @@ else:
         # --- Toon de content van de actieve tab ---
         if active_tab == "Gemiddelde Dag van de Maand":
             st.header("Gemiddelde Dag van de Maand")
+
+            # === Automatische berekening van SoC divisor ===
+            # Schatting van typische ontlading
+            max_discharge_auto = df["Discharge_auto2_kWh"].max() if "Discharge_auto2_kWh" in df else 0.0
+            max_discharge_da = df["Discharge_da_kWh"].max() if "Discharge_da_kWh" in df else 0.0
+            typical_max_discharge = max(max_discharge_auto, max_discharge_da, 1e-6)
+
+            # Gewenste verhouding: batterijcapaciteit / divisor ≈ typische ontlading
+            ratio = BATTERY_CAP_KWH / typical_max_discharge if typical_max_discharge > 0 else 20
+
+            # Toegestane waarden voor divisor
+            allowed_divisors = np.array([1, 5, 10, 20])
+            soc_divisor = allowed_divisors[np.argmin(np.abs((BATTERY_CAP_KWH / allowed_divisors) - typical_max_discharge))]
+
+            st.caption(f"SoC schaal automatisch ingesteld op 1/{soc_divisor} van batterijcapaciteit "
+                       f"(≈ {BATTERY_CAP_KWH/soc_divisor:.1f} kWh zichtbaar in grafiek).")
+
             df_plot = df.copy()
             df_plot["Injection_neg"] = -df["Injection_KWh"].clip(lower=0.0)
-            if "PV_KWh" not in df_plot.columns: df_plot["PV_KWh"] = 0
-            
-            fig1 = _monthly_avg_block(df_plot, ["Import_KWh","PV_KWh","Injection_neg"], ["Huidige afname (kWh)", "PV productie (kWh)", "Huidige injectie"], "Gemiddelde dag van de maand (zonder batterij)")
-            if fig1: st.pyplot(fig1)
+            if "PV_KWh" not in df_plot.columns:
+                df_plot["PV_KWh"] = 0
+
+            fig1 = _monthly_avg_block(
+                df_plot,
+                ["Import_KWh", "PV_KWh", "Injection_neg"],
+                ["Huidige afname (kWh)", "PV productie (kWh)", "Huidige injectie"],
+                "Gemiddelde dag van de maand (zonder batterij)"
+            )
+            if fig1:
+                st.pyplot(fig1)
 
             df_plot2 = df.copy()
             df_plot2["Injection_after_neg"] = -df_plot2["Export_after_auto_kWh"].clip(lower=0.0)
-            if "PV_KWh" not in df_plot2.columns: df_plot2["PV_KWh"] = 0
-            fig2 = _monthly_avg_block(df_plot2, ["Grid_buy_after_auto_kWh","PV_KWh","Injection_after_neg"], ["Afname na batterij (kWh)", "PV productie (kWh)", "Injectie na batterij"], "Gemiddelde dag van de maand (met batterij autoconsumptie sturing)", soc_col="SoC_auto2_KWh", soc_divisor=20)
-            if fig2: st.pyplot(fig2)
+            if "PV_KWh" not in df_plot2.columns:
+                df_plot2["PV_KWh"] = 0
+            fig2 = _monthly_avg_block(
+                df_plot2,
+                ["Grid_buy_after_auto_kWh", "PV_KWh", "Injection_after_neg"],
+                ["Afname na batterij (kWh)", "PV productie (kWh)", "Injectie na batterij"],
+                "Gemiddelde dag van de maand (met batterij autoconsumptie sturing)",
+                soc_col="SoC_auto2_KWh",
+                soc_divisor=soc_divisor
+            )
+            if fig2:
+                st.pyplot(fig2)
 
             df_plot3 = df.copy()
             df_plot3["Injection_da_neg"] = -df_plot3["Export_after_da_KWh"].clip(lower=0.0)
-            if "PV_KWh" not in df_plot3.columns: df_plot3["PV_KWh"] = 0
-            fig3 = _monthly_avg_block(df_plot3, ["Grid_total_da_KWh","PV_KWh","Injection_da_neg"], ["Afname na batterij (kWh)", "PV productie (kWh)", "Injectie na batterij"], "Gemiddelde dag van de maand (met batterij day-ahead sturing)", soc_col="SoC_da_KWh", soc_divisor=20)
-            if fig3: st.pyplot(fig3)
+            if "PV_KWh" not in df_plot3.columns:
+                df_plot3["PV_KWh"] = 0
+            fig3 = _monthly_avg_block(
+                df_plot3,
+                ["Grid_total_da_KWh", "PV_KWh", "Injection_da_neg"],
+                ["Afname na batterij (kWh)", "PV productie (kWh)", "Injectie na batterij"],
+                "Gemiddelde dag van de maand (met batterij day-ahead sturing)",
+                soc_col="SoC_da_KWh",
+                soc_divisor=soc_divisor
+            )
+            if fig3:
+                st.pyplot(fig3)
 
         elif st.session_state.active_tab == "Wekelijks Overzicht":
             st.header("Batterijsimulatie - Wekelijks Overzicht")
