@@ -346,10 +346,10 @@ else:
         df, DT_HOURS, unique_months, optimized_peaks = st.session_state.analysis_results
         
         # --- Navigatie met radio knoppen die de state onthouden ---
-        tabs = ["Gemiddelde Dag van de Maand", "Wekelijks Overzicht", "Resultaten Samenvatting"]
+        tabs = ["Resultaten Samenvatting", "Gemiddelde Dag van de Maand", "Wekelijks Overzicht"]
         
         if 'active_tab' not in st.session_state:
-            st.session_state.active_tab = tabs[0]
+            st.session_state.active_tab = tabs[0] # Start nu op "Resultaten Samenvatting"
 
         active_tab = st.radio("Selecteer een overzicht:", tabs, key="active_tab", horizontal=True, label_visibility="collapsed")
 
@@ -492,6 +492,7 @@ else:
             total_charge_pv = df["Charge_from_PV_da_kWh"].sum()
             total_charge_cost_pv = (df["Charge_from_PV_da_kWh"] * df["Prijs_injectie"]).sum()
             avg_charge_pv = total_charge_cost_pv / total_charge_pv if total_charge_pv > 0 else 0.0
+            
             total_discharge_load = df["Discharge_to_load_da_kWh"].sum()
             total_discharge_value_load = (df["Discharge_to_load_da_kWh"] * df["Prijs_verbruik"]).sum()
             avg_discharge_total = (total_discharge_value_load + (df["Discharge_to_grid_da_kWh"] * df["Prijs_injectie"]).sum()) / total_discharge_da if total_discharge_da > 0 else 0.0
@@ -511,58 +512,68 @@ else:
                 numerator = (total_savings_dayahead - savings_peak_cost_dayahead - (avg_discharge_total - avg_charge_pv) * total_discharge_auto)
                 avg_discharge_delta_da = numerator / additional_discharge_da_kwh
             
-            # --- AANGEPAST: Tabel data met correcte opmaak en namen ---
             summary_table_data_ordered = [
                 {'Parameter': 'Productie in kWh', 'Waarde': f"{total_pv_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Resterende net Afname in kWh (zonder batterij)', 'Waarde': f"{import_wb_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Injectie in kWh (zonder batterij)', 'Waarde': f"{export_wb_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Gemiddelde maandpiek (zonder batterij)', 'Waarde': f"{avg_original_peak:,.1f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
+                {'Parameter': 'Resterende net Afname in kWh', 'Waarde': f"{import_wb_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
+                {'Parameter': 'Injectie in kWh', 'Waarde': f"{export_wb_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
+                {'Parameter': 'Gemiddelde maandpiek', 'Waarde': f"{avg_original_peak:,.1f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
                 {'Parameter': 'Batterij capaciteit in kwh', 'Waarde': f"{BATTERY_CAP_KWH:,.0f}", 'Eenheid': 'kWh'},
-                {'Parameter': 'Injectie in kWh (na auto-cons)', 'Waarde': f"{export_auto_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Gemiddelde maandpiek (na optimalisatie)', 'Waarde': f"{avg_optimized_peak:,.1f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
-                {'Parameter': 'Energie uit Batterij in kWh (day-ahead)', 'Waarde': f"{total_discharge_da:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Resterende net Afname in kWh (auto-cons)', 'Waarde': f"{import_auto_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Waarde zelfconsumptie (auto-cons)', 'Waarde': f"{(avg_discharge_total - avg_charge_pv):.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kWh'},
-                {'Parameter': 'Waarde day-ahead sturing', 'Waarde': f"{avg_discharge_delta_da:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kWh'},
+                {'Parameter': 'Injectie in kWh', 'Waarde': f"{export_auto_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
+                {'Parameter': 'Gemiddelde maandpiek', 'Waarde': f"{avg_optimized_peak:,.1f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
+                {'Parameter': 'Energie uit Batterij in kWh', 'Waarde': f"{total_discharge_da:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
+                {'Parameter': 'Resterende net Afname in kWh', 'Waarde': f"{import_auto_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
+                {'Parameter': 'Vermeden aankoop door batterij', 'Waarde': f"{avg_discharge_total-avg_charge_pv:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kWh'},
+                {'Parameter': 'Day-ahead sturing', 'Waarde': f"{avg_discharge_delta_da:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kWh'},
                 {'Parameter': 'kWh voor zelfconsumptie', 'Waarde': f"{total_discharge_auto:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
                 {'Parameter': 'kWh voor day-ahead sturing', 'Waarde': f"{additional_discharge_da_kwh:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'kWh'},
-                {'Parameter': 'Waarde peakshaving', 'Waarde': f"{COST_PEAK_EUR_PER_KW_MONTH*12:.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kW/jaar'},
-                {'Parameter': 'Gemiddelde piek reductie', 'Waarde': f"{avg_reduction_kw:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
-                {'Parameter': 'Basiskost (variabel + piek)', 'Waarde': f"{baseline_cost_with_peak:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
-                {'Parameter': 'Besparing variabele energie (day-ahead)', 'Waarde': f"{savings_variable_energy_dayahead:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
-                {'Parameter': 'Besparing piekvermogen (day-ahead)', 'Waarde': f"{savings_peak_cost_dayahead:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
+                {'Parameter': 'Peakshaving', 'Waarde': f"{COST_PEAK_EUR_PER_KW_MONTH*12:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR/kW'},
+                {'Parameter': 'Peakshaving', 'Waarde': f"{avg_reduction_kw:.4f}".replace(',', '').replace('.', ','), 'Eenheid': 'kW'},
+                {'Parameter': 'Basiskost', 'Waarde': f"{baseline_cost_with_peak:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
+                {'Parameter': 'Besparing variabele energie', 'Waarde': f"{savings_variable_energy_dayahead:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
+                {'Parameter': 'Besparing piekvermogen', 'Waarde': f"{savings_peak_cost_dayahead:,.2f}".replace(',', '').replace('.', ','), 'Eenheid': 'EUR'},
             ]
             results_df_ordered = pd.DataFrame(summary_table_data_ordered).set_index('Parameter')
             
+            # --- VOLGORDE AANGEPAST ---
+            
+            # 1. Kostentotalen & Besparingen
+            st.subheader("Kostentotalen")
+            col_k1, col_k2, col_k3 = st.columns(3)
+            with col_k1:
+                st.metric("Baseline Kosten", f"€ {baseline_cost_with_peak:,.2f}")
+            with col_k2:
+                st.metric("Kosten na Day-ahead", f"€ {dayahead_total_cost:,.2f}")
+            with col_k3:
+                st.metric("Totale besparing Day-ahead en peak shaving", f"€ {total_savings_dayahead:,.2f}")
+                st.markdown(f"""<div style="font-size: 0.9em;"><p style="margin-bottom: 0;">↳ Besp. variabele energie: € {savings_variable_energy_dayahead:,.2f}</p><p>↳ Besp. piekvermogen: € {savings_peak_cost_dayahead:,.2f}</p></div>""", unsafe_allow_html=True)
+
+            st.markdown("---") # Visuele scheidingslijn
+
+            # 2. Samenvatting Resultaten (tabel)
             st.subheader("SAMENVATTING RESULTATEN")
             st.dataframe(results_df_ordered)
 
-            # --- Andere overzichten (deze blijven ongewijzigd) ---
-            st.subheader("Kostentotalen")
-            st.metric("Baseline Kosten", f"€ {baseline_cost_with_peak:,.2f}")
-            st.metric("Kosten na Day-ahead", f"€ {dayahead_total_cost:,.2f}")
+            st.markdown("---")
 
-            st.subheader("Besparingen tov Baseline")
-            st.metric("Totale besparing Day-ahead en peak shaving", f"€ {total_savings_dayahead:,.2f}")
-            st.text(f"  ↳ Besp. variabele energie: € {savings_variable_energy_dayahead:,.2f}")
-            st.text(f"  ↳ Besp. piekvermogen: € {savings_peak_cost_dayahead:,.2f}")
-            
+            # 3. Gemiddelde Prijzen
             st.subheader("Gemiddelde Prijzen voor Batterijstromen (€/kWh)")
+            
+            total_charge_grid = df["Charge_from_grid_da_kWh"].sum()
             total_charge_cost_grid = (df["Charge_from_grid_da_kWh"] * df["Prijs_verbruik"]).sum()
-            avg_charge_grid = total_charge_cost_grid / df["Charge_from_grid_da_kWh"].sum() if df["Charge_from_grid_da_kWh"].sum() > 0 else 0.0
-            avg_charge_total = (total_charge_cost_pv + total_charge_cost_grid) / (total_charge_pv + df["Charge_from_grid_da_kWh"].sum()) if (total_charge_pv + df["Charge_from_grid_da_kWh"].sum()) > 0 else 0.0
+            avg_charge_grid = total_charge_cost_grid / total_charge_grid if total_charge_grid > 0 else 0.0
+            avg_charge_total = (total_charge_cost_pv + total_charge_cost_grid) / (total_charge_pv + total_charge_grid) if (total_charge_pv + total_charge_grid) > 0 else 0.0
             
             total_discharge_value_grid = (df["Discharge_to_grid_da_kWh"] * df["Prijs_injectie"]).sum()
             avg_discharge_grid = total_discharge_value_grid / df["Discharge_to_grid_da_kWh"].sum() if df["Discharge_to_grid_da_kWh"].sum() > 0 else 0.0
             avg_discharge_load = total_discharge_value_load / total_discharge_load if total_discharge_load > 0 else 0.0
 
-            col1, col2 = st.columns(2)
-            with col1:
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
                 st.text("Laden")
                 st.text(f"  Vanaf PV:       € {avg_charge_pv:.4f}")
                 st.text(f"  Vanaf net:      € {avg_charge_grid:.4f}")
                 st.text(f"  Totaal:             € {avg_charge_total:.4f}")
-            with col2:
+            with col_p2:
                 st.text("Ontladen")
                 st.text(f"  Naar verbruik: € {avg_discharge_load:.4f}")
                 st.text(f"  Naar net:     € {avg_discharge_grid:.4f}")
