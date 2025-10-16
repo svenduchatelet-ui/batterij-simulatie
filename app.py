@@ -330,7 +330,7 @@ if run_button:
             st.session_state.analysis_results = results
             # Reset de staat van de tabs en weekkeuze voor een nieuwe analyse
             if 'active_tab' in st.session_state:
-                st.session_state.active_tab = "Gemiddelde Dag van de Maand"
+                st.session_state.active_tab = "Resultaten Samenvatting"
             if 'selected_week' in st.session_state:
                 del st.session_state.selected_week
     else:
@@ -374,22 +374,6 @@ else:
             if "PV_KWh" not in df_plot3.columns: df_plot3["PV_KWh"] = 0
             fig3 = _monthly_avg_block(df_plot3, ["Grid_total_da_KWh","PV_KWh","Injection_da_neg"], ["Afname na batterij (kWh)", "PV productie (kWh)", "Injectie na batterij"], "Gemiddelde dag van de maand (met batterij day-ahead sturing)", soc_col="SoC_da_KWh", soc_divisor=20)
             if fig3: st.pyplot(fig3)
-
-            st.subheader("MAANDELIJKSE PIEKVERMOGENS (kW) VERGELIJKING")
-            if 'Import_kW' not in df.columns: df['Import_kW'] = df['Import_KWh'] / DT_HOURS
-            original_monthly_peak_kW = df.groupby('Maand_Jaar')['Import_kW'].max()
-            peak_data = []
-            for m in unique_months:
-                original_peak = original_monthly_peak_kW.get(m, 0.0)
-                optimized_peak = optimized_peaks.get(str(m), 0.0)
-                reduction_kW = original_peak - optimized_peak
-                monthly_peak_savings_eur = reduction_kW * COST_PEAK_EUR_PER_KW_MONTH
-                peak_data.append({"Maand": str(m), "Origineel (kW)": original_peak, "Geoptimaliseerd (kW)": optimized_peak, "Reductie (kW)": reduction_kW, "Piekbesparing (€)": monthly_peak_savings_eur})
-            peak_df = pd.DataFrame(peak_data)
-            total_reduction_cost_savings = peak_df["Piekbesparing (€)"].sum()
-            avg_row_data = {"Maand": "Gemiddelde / Totaal", "Origineel (kW)": peak_df["Origineel (kW)"].mean(), "Geoptimaliseerd (kW)": peak_df["Geoptimaliseerd (kW)"].mean(), "Reductie (kW)": peak_df["Reductie (kW)"].mean(), "Piekbesparing (€)": total_reduction_cost_savings}
-            peak_df = pd.concat([peak_df, pd.DataFrame([avg_row_data])], ignore_index=True)
-            st.dataframe(peak_df.style.format({"Origineel (kW)": "{:,.2f}", "Geoptimaliseerd (kW)": "{:,.2f}", "Reductie (kW)": "{:,.2f}", "Piekbesparing (€)": "{:,.2f}"}))
 
         elif st.session_state.active_tab == "Wekelijks Overzicht":
             st.header("Batterijsimulatie - Wekelijks Overzicht")
@@ -551,7 +535,34 @@ else:
 
             # 2. Samenvatting Resultaten (tabel)
             st.subheader("SAMENVATTING RESULTATEN")
-            st.dataframe(results_df_ordered)
+            st.dataframe(results_df_ordered, use_container_width=True, height=700)
+
+            st.markdown("---")
+
+            st.subheader("MAANDELIJKSE PIEKVERMOGENS (kW) VERGELIJKING")
+            if 'Import_kW' not in df.columns: df['Import_kW'] = df['Import_KWh'] / DT_HOURS
+            original_monthly_peak_kW = df.groupby('Maand_Jaar')['Import_kW'].max()
+            peak_data = []
+            for m in unique_months:
+                original_peak = original_monthly_peak_kW.get(m, 0.0)
+                optimized_peak = optimized_peaks.get(str(m), 0.0)
+                reduction_kW = original_peak - optimized_peak
+                monthly_peak_savings_eur = reduction_kW * COST_PEAK_EUR_PER_KW_MONTH
+                peak_data.append({"Maand": str(m), "Origineel (kW)": original_peak, "Geoptimaliseerd (kW)": optimized_peak, "Reductie (kW)": reduction_kW, "Piekbesparing (€)": monthly_peak_savings_eur})
+            peak_df = pd.DataFrame(peak_data)
+            total_reduction_cost_savings = peak_df["Piekbesparing (€)"].sum()
+            avg_row_data = {"Maand": "Gemiddelde / Totaal", "Origineel (kW)": peak_df["Origineel (kW)"].mean(), "Geoptimaliseerd (kW)": peak_df["Geoptimaliseerd (kW)"].mean(), "Reductie (kW)": peak_df["Reductie (kW)"].mean(), "Piekbesparing (€)": total_reduction_cost_savings}
+            peak_df = pd.concat([peak_df, pd.DataFrame([avg_row_data])], ignore_index=True)
+            st.dataframe(
+                peak_df.style.format({
+                    "Origineel (kW)": "{:,.2f}",
+                    "Geoptimaliseerd (kW)": "{:,.2f}",
+                    "Reductie (kW)": "{:,.2f}",
+                    "Piekbesparing (€)": "{:,.2f}"
+                }),
+                use_container_width=True,
+                height=500
+            )
 
             st.markdown("---")
 
