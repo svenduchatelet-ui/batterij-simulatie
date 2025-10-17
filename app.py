@@ -585,7 +585,11 @@ else:
             st.markdown("---")
 
             st.subheader("MAANDELIJKSE PIEKVERMOGENS (kW) VERGELIJKING")
-            if 'Import_kW' not in df.columns: df['Import_kW'] = df['Import_KWh'] / DT_HOURS
+
+            # --- Berekening en tabel zoals voorheen ---
+            if 'Import_kW' not in df.columns:
+                df['Import_kW'] = df['Import_KWh'] / DT_HOURS
+
             original_monthly_peak_kW = df.groupby('Maand_Jaar')['Import_kW'].max()
             peak_data = []
             for m in unique_months:
@@ -593,11 +597,26 @@ else:
                 optimized_peak = optimized_peaks.get(str(m), 0.0)
                 reduction_kW = original_peak - optimized_peak
                 monthly_peak_savings_eur = reduction_kW * COST_PEAK_EUR_PER_KW_MONTH
-                peak_data.append({"Maand": str(m), "Origineel (kW)": original_peak, "Geoptimaliseerd (kW)": optimized_peak, "Reductie (kW)": reduction_kW, "Piekbesparing (€)": monthly_peak_savings_eur})
+                peak_data.append({
+                    "Maand": str(m),
+                    "Origineel (kW)": original_peak,
+                    "Geoptimaliseerd (kW)": optimized_peak,
+                    "Reductie (kW)": reduction_kW,
+                    "Piekbesparing (€)": monthly_peak_savings_eur
+                })
+
             peak_df = pd.DataFrame(peak_data)
             total_reduction_cost_savings = peak_df["Piekbesparing (€)"].sum()
-            avg_row_data = {"Maand": "Gemiddelde / Totaal", "Origineel (kW)": peak_df["Origineel (kW)"].mean(), "Geoptimaliseerd (kW)": peak_df["Geoptimaliseerd (kW)"].mean(), "Reductie (kW)": peak_df["Reductie (kW)"].mean(), "Piekbesparing (€)": total_reduction_cost_savings}
+            avg_row_data = {
+                "Maand": "Gemiddelde / Totaal",
+                "Origineel (kW)": peak_df["Origineel (kW)"].mean(),
+                "Geoptimaliseerd (kW)": peak_df["Geoptimaliseerd (kW)"].mean(),
+                "Reductie (kW)": peak_df["Reductie (kW)"].mean(),
+                "Piekbesparing (€)": total_reduction_cost_savings
+            }
             peak_df = pd.concat([peak_df, pd.DataFrame([avg_row_data])], ignore_index=True)
+
+            # --- 1️⃣ Datatable behouden (kopieerbaar) ---
             st.dataframe(
                 peak_df.style.format({
                     "Origineel (kW)": "{:,.2f}",
@@ -609,7 +628,51 @@ else:
                 height=500
             )
 
+            # --- 2️⃣ Tekstversie met print-achtige layout ---
+            st.markdown("### Tekstuele weergave (console-stijl)")
+
+            total_original_peak_cost = 0.0
+            total_optimized_peak_cost = 0.0
+            total_original_peak_kw = 0.0
+            total_optimized_peak_kw = 0.0
+            total_reduction_kw = 0.0
+
+            lines = []
+            lines.append(f"{'Maand':<12} | {'Origineel (kW)':<15} | {'Geoptimaliseerd (kW)':<20} | {'Reductie (kW)':<15} | {'Piekbesparing (€)':<18}")
+            lines.append("-" * 90)
+
+            for m in unique_months:
+                original_peak = original_monthly_peak_kW.get(m, 0.0)
+                optimized_peak = optimized_peaks.get(str(m), 0.0)
+                reduction_kW = original_peak - optimized_peak
+                monthly_peak_savings_eur = reduction_kW * COST_PEAK_EUR_PER_KW_MONTH
+
+                total_original_peak_cost += original_peak * COST_PEAK_EUR_PER_KW_MONTH
+                total_optimized_peak_cost += optimized_peak * COST_PEAK_EUR_PER_KW_MONTH
+                total_original_peak_kw += original_peak
+                total_optimized_peak_kw += optimized_peak
+                total_reduction_kw += reduction_kW
+
+                lines.append(f"{str(m):<12} | {original_peak:<15.2f} | {optimized_peak:<20.2f} | {reduction_kW:<15.2f} | {monthly_peak_savings_eur:<18.2f}")
+
+            lines.append("-" * 90)
+
+            num_months = len(unique_months)
+            if num_months > 0:
+                avg_original_peak = total_original_peak_kw / num_months
+                avg_optimized_peak = total_optimized_peak_kw / num_months
+                avg_reduction_kw = total_reduction_kw / num_months
+            else:
+                avg_original_peak = avg_optimized_peak = avg_reduction_kw = 0.0
+
+            total_reduction_cost_savings = total_original_peak_cost - total_optimized_peak_cost
+            lines.append(f"{'Gemiddelde':<12} | {avg_original_peak:<15.2f} | {avg_optimized_peak:<20.2f} | {avg_reduction_kw:<15.2f} | {'Totaal:':<10} €{total_reduction_cost_savings:<8.2f}")
+
+            # Toon alles in monospace-blok
+            st.markdown("```\n" + "\n".join(lines) + "\n```")
+
             st.markdown("---")
+
 
             # 3. Gemiddelde Prijzen
             st.subheader("Gemiddelde Prijzen voor Batterijstromen (€/kWh)")
